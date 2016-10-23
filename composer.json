@@ -1,0 +1,23 @@
+{
+  "name": "steverhoades/multiuser-sketchpad",
+  "description": "A Websocket demo application using ReactPHP.",
+  "type": "project",
+  "homepage": "https://github.com/steverhoades/multiuser-sketchpad",
+  "authors": [
+    {
+      "name": "Steve Rhoades",
+      "homepage": "http://www.stephenrhoades.com/"
+    }
+  ],
+  "require": {
+    "php": ">=5.5.0",
+    "react/react": "dev-master as 0.4.2",
+    "react/partial": "~2.0",
+    "cboden/ratchet": "dev-master"
+  },
+  "autoload": {
+    "psr-4": {
+      "Sketchpad\\": "src/"
+    }
+  }
+}
