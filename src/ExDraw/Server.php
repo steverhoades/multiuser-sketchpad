@@ -41,6 +41,7 @@ class Server implements MessageComponentInterface
 
         $this->clients->attach($conn, $this->id);
         $this->nicks[$this->id] = "Guest {$this->id}";
+        $this->drawing[$this->id] = false;
 
         // send user id
         $this->sendDataToConnection($conn, [$this->id, self::USER_ID, $this->nicks[$this->id]]);
@@ -92,9 +93,7 @@ class Server implements MessageComponentInterface
             // drawing on connection started
             $this->drawing[$id] = $data[2] == 1;
         } else if($this->drawing[$id]) {
-            $this->drawState[] = join(self::DELIMITER, $data);
-        } else if ($data[0] == 4 && $data[1] == 4) {
-            $this->drawState[] = join(self::DELIMITER, $data);
+            $this->drawState[] = $msg;
         }
 
         foreach($this->clients as $client) {
@@ -115,6 +114,7 @@ class Server implements MessageComponentInterface
 
         $this->onMessage($conn, self::USER_DISCONNECTED . self::DELIMITER . $id . self::DELIMITER . $this->nicks[$id]);
         unset($this->nicks[$id]);
+        unset($this->drawing[$this->id]);
         $this->clients->detach($conn);
         echo "closing connection for $id" . PHP_EOL;
     }
