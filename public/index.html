@@ -10,27 +10,27 @@
         <canvas id="canvas"></canvas>
         <div id="container"></div>
         <div id="panel">
-            <div style="width: 100%;">
+            <div class="section_info">
                 <p><strong><a href="https://github.com/steverhoades/async-talk-examples">Multi-User Sketchpad</a><br /> by <a href="http://twitter.com/steverhoades">Steve Rhoades</a></strong><br />
                     <span style='font-size: 8px'>Powered by <a href="https://github.com/reactphp">ReactPHP</a></span></p>
                 <strong>Change Pencil Color:</strong><br> <input type="text" id="color_box" value="#000000" size="7" /><br />
                 Save As: <a onclick="saveDrawing()">.png</a><br />
-                <hr />
             </div>
-            <table>
-                <tr>
-                    <td id="messages" style="vertical-align: bottom">
-                        <div id="messagesDiv" style="overflow: hidden"></div>
-                    </td>
-                </tr>
-            </table>
-            <p><strong>You Are: <span id="nickname"></span></strong> <br /><a onclick="changeNickname()">Change Nickname</a></p>
-            <input id="inputbox" type="text" maxlength="40" placeholder="Chat Message Here" />
+            <hr />
+            <div class="section_info">
+                <div id="messages">
+                    <div id="messagesDiv"></div>
+                </div>
+                <p>
+                    <strong>You Are: <span id="nickname"></span></strong><br />
+                    <a onclick="changeNickname()">Change Nickname</a>
+                </p>
+                <input id="inputbox" type="text" maxlength="40" placeholder="Chat Message Here" />
+            </div>
         </div>
 
         <script src="/js/sketchpad.js" type="application/javascript" ></script>
         <script src="/js/color-picker.js" type="application/javascript" ></script>
-
         <script type="text/javascript">
             if ( window["WebSocket"] ) {
                 var connection = new WebSocket("ws://127.0.0.1:8085/");
@@ -46,7 +46,7 @@
                 var messagesDiv = document.getElementById( 'messagesDiv' );
                 messagesDiv.style.minHeight = '0px';
 
-                sketchpad = new sketchpad(connection, canvas, document.getElementById('inputbox'), messagesDiv);
+                var sketchpad = new Sketchpad(connection, canvas, document.getElementById('inputbox'), messagesDiv);
 
                 var picker = new CP(document.querySelector('input[type="text"]'));
                 picker.on("stop", function(v, instance) {
@@ -60,7 +60,7 @@
                 });
 
                 // if window is resized, fix the panel.
-                // TODO remove this hack
+                // TODO remove this hack and replace with a css solution
                 function onResize(event) {
                     var screenHeight = window.innerHeight;
 
@@ -71,13 +71,17 @@
                     messages.style.height = ( screenHeight - 260 ) + 'px';
                 }
 
+                function changeNickname() {
+                    sketchpad.changeNickname();
+                }
+
                 window.addEventListener('resize', onResize, false );
 
                 // fix panel height
                 onResize();
 
                 setTimeout(function() {
-                    sketchpad.changeNickname();
+                    changeNickname();
                 }, 1000);
             }
         </script>

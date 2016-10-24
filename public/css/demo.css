@@ -15,9 +15,15 @@ body {
 }
 
 #messages {
-
+    display: table;
     color: #707070;
 
+}
+
+#messagesDiv {
+    display: table-cell;
+    vertical-align: bottom;
+    overflow: hidden;
 }
 
 #container {
@@ -62,4 +68,9 @@ input {
     color: #808080;
     border: 0;
     background-color:#f0f0f0;
+}
+
+.section_info {
+    width: 170px;
+    padding: 0px 5px;
 }
