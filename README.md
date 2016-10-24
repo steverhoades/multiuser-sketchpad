@@ -17,5 +17,5 @@ Since the demo runs on port 81 for the web server we'll need to start it with su
 ```bash
 $ sudo php bin/server.php > /dev/null 2>&1 &
 ```
-
+Once running open your browser to: [http://127.0.0.1:81](http://127.0.0.1:81)
 
