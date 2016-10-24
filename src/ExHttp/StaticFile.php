@@ -47,7 +47,7 @@ Class StaticFile
 
         $path     = $this->getPath($request);
         $fullPath = $this->docroot . DIRECTORY_SEPARATOR . $path;
-echo $path;
+
         echo "Loading static file: $path" . PHP_EOL;
         // if(isset($this->fileCache[$path])) {
         //     echo "cache hit for: $path" . PHP_EOL;
