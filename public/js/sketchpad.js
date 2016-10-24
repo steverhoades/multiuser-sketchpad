@@ -1,3 +1,13 @@
+/**
+ * The sketchpad manager class. It will manaage messages coming from the server and interact with the various supporting
+ * objects to handle drawing and chat.  In addition it will manage the state.
+ *
+ * @param connection        The websocket connection
+ * @param canvas            The canvas dom element
+ * @param messageInput      the chat input dom element
+ * @param messageBox        the chat message dom element
+ * @param options           object of options
+ */
 var sketchpad = function(connection, canvas, messageInput, messageBox, options) {
     this.USER_LIST =  0;
     this.USER_ID =  1;
@@ -23,38 +33,21 @@ var sketchpad = function(connection, canvas, messageInput, messageBox, options) 
        }
     }
 
+    this.canvas = new sketchpadCanvas(canvas);
+
     this.connection = connection;
     this.connection.onclose = this.connectionClose.bind(this);
     this.connection.onmessage = this.connectionMessage.bind(this);
 
-    this.canvas = canvas;
     this.messageInput = messageInput;
     this.messageBox = messageBox;
-
-    // setup canvas context
-    this.canvasContext = this.canvas.getContext( '2d' );
-    this.canvasContext.lineWidth = 2.8;
-    this.canvasContext.fillStyle = 'rgb(255, 255, 255)';
-    this.canvasContext.fillRect( 0, 0, this.canvas.width, this.canvas.height);
-
-    // setup cursor view
-    this.container = document.createElement( 'div' );
-
-    // should have the same left value as the canvas
-    this.container.style.left = this.canvas.style.left;
-
-    // ignore events on the cursor view
-    this.container.addEventListener( 'mouseover', function( event ) { event.preventDefault(); }, false );
-    this.container.addEventListener( 'mousedown', function( event ) { event.preventDefault(); }, false );
-
-    // append to the document
-    document.getElementsByTagName('body')[0].appendChild(this.container);
 
     // setup broadcast interval
     setInterval( this.broadcast.bind(this), 100 );
 
     // add event listeners
-    this.canvas.addEventListener( 'mousedown', this.onCanvasMouseDown.bind(this), false );
+    this.canvas.mousedown(this.onCanvasMouseDown.bind(this));
+
     document.addEventListener( 'mouseup', this.onDocumentMouseUp.bind(this), false );
     document.addEventListener( 'mousemove', this.onDocumentMouseMove.bind(this), false );
     document.addEventListener( 'keydown', this.onDocumentKeyDown.bind(this), false );
@@ -83,15 +76,9 @@ sketchpad.prototype = {
     currentUserId: null,
     currentColor: 0,
     colorJSON: '',
-    canvasContext: null,
 
     send: function(msg) {
         this.connection.send(msg);
-    },
-
-    cursorElement: function()
-    {
-        return this.container;
     },
 
     onCanvasMouseDown: function( event ) {
@@ -103,8 +90,8 @@ sketchpad.prototype = {
             this.panning = true;
             this.mouseXOnPan = event.clientX;
             this.mouseYOnPan = event.clientY;
-            this.canvasXOnPan = canvas.offsetLeft;
-            this.canvasYOnPan = canvas.offsetTop;
+            this.canvasXOnPan = this.canvas.offsetLeft();
+            this.canvasYOnPan = this.canvas.offsetTop();
 
             return;
         }
@@ -114,8 +101,8 @@ sketchpad.prototype = {
         var scrollLeft = Math.max(document.documentElement.scrollLeft, document.body.scrollLeft);
         var scrollTop = Math.max(document.documentElement.scrollTop, document.body.scrollTop);
 
-        this.mouseX = (event.clientX  + scrollLeft) - canvas.offsetLeft;
-        this.mouseY = (event.clientY + scrollTop) - canvas.offsetTop;
+        this.mouseX = (event.clientX  + scrollLeft) - this.canvas.offsetLeft();
+        this.mouseY = (event.clientY + scrollTop) - this.canvas.offsetTop();
 
         // send right away
         this.send("4"+ this.settings.delimiter + this.COMMAND_MOUSEDOWN + this.settings.delimiter +"1");
@@ -137,11 +124,11 @@ sketchpad.prototype = {
         var scrollLeft = Math.max(document.documentElement.scrollLeft, document.body.scrollLeft);
         var scrollTop = Math.max(document.documentElement.scrollTop, document.body.scrollTop);
 
-        this.mouseX = (event.clientX  + scrollLeft) - canvas.offsetLeft;
-        this.mouseY = (event.clientY + scrollTop) - canvas.offsetTop;
+        this.mouseX = (event.clientX  + scrollLeft) - this.canvas.offsetLeft();
+        this.mouseY = (event.clientY + scrollTop) - this.canvas.offsetTop();
 
         if ( this.mouseDown ) {
-            this.draw( this.oldMouseX, this.oldMouseY, this.mouseX, this.mouseY, this.currentColor );
+            this.canvas.draw( this.oldMouseX, this.oldMouseY, this.mouseX, this.mouseY, this.currentColor );
         }
 
         if ( !this.commands.length ) {
@@ -182,22 +169,6 @@ sketchpad.prototype = {
         this.commands = [];
     },
 
-    //
-
-    draw: function( x1, y1, x2, y2, color ) {
-        var dx  = x2 - x1,
-            dy = y2 - y1,
-            d = Math.sqrt( dx * dx + dy * dy ) * 0.02;
-
-        var context = this.canvasContext;
-        context.strokeStyle = ( color == 0 ) ? 'rgba(0, 0, 0, ' + ( 0.7 - d )  + ')' : 'rgba('+ color.r +','+ color.g +','+ color.b +', ' + ( 1 - d )  + ')';
-        context.beginPath();
-        context.moveTo( x1, y1 );
-        context.lineTo( x2, y2 );
-        context.closePath();
-        context.stroke();
-    },
-
     hexToRgb: function(hex) {
         var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
         return result ? {
@@ -212,13 +183,8 @@ sketchpad.prototype = {
         this.colorJSON      = JSON.stringify(this.currentColor);
     },
 
-
     saveDrawing: function() {
-        // Thanks to @Befzz for this fix
-        if ( window.sf_win ) window.sf_win.close();
-
-        window.sf_win = window.open( 'about:blank', Math.random() * Math.random(), '' );
-        window.sf_win.document.write( "<body style='background-color:#ddd;'><a onclick='update_img()' style='text-decoration:underline;cursor:pointer;color:#44f;'>Update Image</a></br><img id='p_img' width='800px' ><script>document.title='Saving Canvas';function update_img(){document.getElementById('p_img').src=opener.canvas.toDataURL( 'image/png' );};update_img();<\/script>" );
+        this.canvas.saveDrawing();
     },
 
     connectionClose: function( event ) {
@@ -296,12 +262,12 @@ sketchpad.prototype = {
                             var x = parseInt( dataArray[ position++ ], 16 );
                             var y = parseInt( dataArray[ position++ ], 16 );
                             var colorVal = dataArray[ position++ ];
-                            var color = (colorVal == 0) ? colorVal : JSON.parse(colorVal);
+                            var color = (colorVal == 0 || colorVal == '') ? 0 : JSON.parse(colorVal);
 
                             userMouseX += x ? x : 0;
                             userMouseY += y ? y : 0;
 
-                            this.moveUser( userId, userMouseX, userMouseY, color );
+                            this.canvas.moveUser(this.users[ userId ], userMouseX, userMouseY, color, this.currentUserId == userId);
                             break;
 
                         case this.COMMAND_MOUSEDOWN:
@@ -346,43 +312,7 @@ sketchpad.prototype = {
             mouseDown: false
         };
 
-        var div = document.createElement( 'div' );
-        div.style.position = 'absolute';
-        div.style.visibility = 'hidden';
-        user.domElement = div;
-
-        var canvas = document.createElement( 'canvas' );
-        canvas.width = 16;
-        canvas.height = 16;
-
-        div.appendChild( canvas );
-
-        var context = canvas.getContext( '2d' );
-        context.lineWidth = 0.2;
-        context.fillStyle = 'rgba(' + user.idColor + ', 0.2)';
-        context.strokeStyle = 'rgb(' + user.idColor + ')';
-
-        context.beginPath();
-        context.arc( 8, 8, 6, 0, Math.PI * 2, true );
-        context.closePath();
-        context.fill();
-        context.stroke();
-
-        var nicknameDiv = document.createElement( 'span' );
-        nicknameDiv.style.position = 'absolute';
-        nicknameDiv.style.top = '3px';
-        nicknameDiv.style.left = '18px';
-        nicknameDiv.style.color = 'rgb(' + user.idColor + ')';
-        nicknameDiv.style.fontFamily = 'Helvetica, Arial';
-        nicknameDiv.style.fontSize = '9px';
-        nicknameDiv.innerHTML = user.nickname;
-
-        if ( user.level == 0 ) nicknameDiv.style.textDecoration = 'underline';
-        div.appendChild( nicknameDiv );
-
-        user.nicknameElement = nicknameDiv;
-
-        container.appendChild( user.domElement );
+        this.canvas.addUser(user);
     },
 
     setUserNickname: function( id, nickname ) {
@@ -390,33 +320,12 @@ sketchpad.prototype = {
         this.users[ id ].nicknameElement.innerHTML = this.users[ id ].nickname;
     },
 
-    moveUser: function( id, x, y, color ) {
-        var user = this.users[ id ];
-
-        if ( user.mouseDown && user.x != 0 && user.y != 0 ) {
-            this.draw( user.x, user.y, x, y, color );
-        }
-
-        user.x = x;
-        user.y = y;
-
-        if (this.currentUserId == id) {
-            return;
-        }
-
-        var element = user.domElement;
-        element.style.left = ( user.x - 8 ) + 'px';
-        element.style.top = ( user.y - 8 ) + 'px';
-        element.style.visibility = 'visible';
-    },
-
     removeUser: function( id ) {
         var user = this.users[ id ];
 
-        if ( user && user.domElement) {
-            container.removeChild( user.domElement );
+        if ( user ) {
+            this.canvas.removeUser(user);
             delete user;
-            console.log('removed user');
         }
     },
 
@@ -495,4 +404,128 @@ sketchpad.prototype = {
     }
 };
 
+/**
+ * The follow object encapsulates the logic around the sketchpad drawing.
+ * @param canvas
+ */
+var sketchpadCanvas = function(canvas) {
+    this.canvas = canvas;
 
+    this.container = document.createElement( 'div' );
+
+    // should have the same left value as the canvas
+    this.container.style.left = this.canvas.style.left;
+
+    // ignore events on the cursor view
+    this.container.addEventListener( 'mouseover', function( event ) { event.preventDefault(); }, false );
+    this.container.addEventListener( 'mousedown', function( event ) { event.preventDefault(); }, false );
+
+    // append to the document
+    document.getElementsByTagName('body')[0].appendChild(this.container);
+
+
+    // setup canvas context
+    this.canvasContext = this.canvas.getContext( '2d' );
+    this.canvasContext.lineWidth = 2.8;
+    this.canvasContext.fillStyle = 'rgb(255, 255, 255)';
+    this.canvasContext.fillRect( 0, 0, this.canvas.width, this.canvas.height);
+};
+
+sketchpadCanvas.prototype = {
+    draw: function( x1, y1, x2, y2, color ) {
+        var dx  = x2 - x1,
+            dy = y2 - y1,
+            d = Math.sqrt( dx * dx + dy * dy ) * 0.02;
+
+        var context = this.canvasContext;
+        context.strokeStyle = ( color == 0 ) ? 'rgba(0, 0, 0, ' + ( 0.7 - d )  + ')' : 'rgba('+ color.r +','+ color.g +','+ color.b +', ' + ( 1 - d )  + ')';
+        context.beginPath();
+        context.moveTo( x1, y1 );
+        context.lineTo( x2, y2 );
+        context.closePath();
+        context.stroke();
+    },
+
+    saveDrawing: function() {
+        if ( window.sf_win ) window.sf_win.close();
+
+        window.sf_win = window.open( 'about:blank', Math.random() * Math.random(), '' );
+        window.sf_win.document.write( "<body style='background-color:#ddd;'><a onclick='update_img()' style='text-decoration:underline;cursor:pointer;color:#44f;'>Update Image</a></br><img id='p_img' width='800px' ><script>document.title='Saving Canvas';function update_img(){document.getElementById('p_img').src=opener.canvas.toDataURL( 'image/png' );};update_img();<\/script>" );
+    },
+
+    addUser: function(user) {
+        var div = document.createElement( 'div' );
+        div.style.position = 'absolute';
+        div.style.visibility = 'hidden';
+        user.domElement = div;
+
+        var canvas = document.createElement( 'canvas' );
+        canvas.width = 16;
+        canvas.height = 16;
+
+        div.appendChild( canvas );
+
+        var context = canvas.getContext( '2d' );
+        context.lineWidth = 0.2;
+        context.fillStyle = 'rgba(' + user.idColor + ', 0.2)';
+        context.strokeStyle = 'rgb(' + user.idColor + ')';
+
+        context.beginPath();
+        context.arc( 8, 8, 6, 0, Math.PI * 2, true );
+        context.closePath();
+        context.fill();
+        context.stroke();
+
+        var nicknameDiv = document.createElement( 'span' );
+        nicknameDiv.style.position = 'absolute';
+        nicknameDiv.style.top = '3px';
+        nicknameDiv.style.left = '18px';
+        nicknameDiv.style.color = 'rgb(' + user.idColor + ')';
+        nicknameDiv.style.fontFamily = 'Helvetica, Arial';
+        nicknameDiv.style.fontSize = '9px';
+        nicknameDiv.innerHTML = user.nickname;
+
+        if ( user.level == 0 ) nicknameDiv.style.textDecoration = 'underline';
+        div.appendChild( nicknameDiv );
+
+        user.nicknameElement = nicknameDiv;
+
+        container.appendChild( user.domElement );
+    },
+
+    moveUser: function(user, x, y, color, currentUser ) {
+        if ( user.mouseDown && user.x != 0 && user.y != 0 ) {
+            this.draw( user.x, user.y, x, y, color );
+        }
+
+        user.x = x;
+        user.y = y;
+
+        if (currentUser) {
+            return;
+        }
+
+        var element = user.domElement;
+        element.style.left = ( user.x - 8 ) + 'px';
+        element.style.top = ( user.y - 8 ) + 'px';
+        element.style.visibility = 'visible';
+    },
+
+    removeUser: function( user ) {
+        if ( user && user.domElement) {
+            container.removeChild( user.domElement );
+        }
+    },
+
+    mousedown: function(callback) {
+        this.canvas.addEventListener( 'mousedown', callback, false );
+    },
+
+    offsetLeft: function() {
+        return this.canvas.offsetLeft;
+    },
+
+    offsetTop: function() {
+        return this.canvas.offsetTop;
+    }
+};
