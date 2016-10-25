@@ -96,7 +96,7 @@ class Sketchpad {
         this.mouseY = (event.clientY + scrollTop) - this.canvas.offsetTop();
 
         // send right away
-        this.send("4"+ this.settings.delimiter + COMMAND_MOUSEDOWN + this.settings.delimiter +"1");
+        this.send( COMMAND + this.settings.delimiter + COMMAND_MOUSEDOWN + this.settings.delimiter +"1");
         this.commands.push( COMMAND_POSITION, this.mouseX.toString( 16 ), this.mouseY.toString( 16 ), this.colorJSON );
     }
 
@@ -108,7 +108,7 @@ class Sketchpad {
         this.mouseDown = false;
 
         // send right away
-        this.send("4" + this.settings.delimiter + COMMAND_MOUSEDOWN + this.settings.delimiter +"0");
+        this.send( COMMAND + this.settings.delimiter + COMMAND_MOUSEDOWN + this.settings.delimiter +"0");
     }
 
     /**
