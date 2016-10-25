@@ -128,8 +128,6 @@ class Server implements MessageComponentInterface
      */
     public function onClose(ConnectionInterface $conn)
     {
-        echo "closing connection for $id" . PHP_EOL;
-
         $id = $this->clients[$conn];
         $this->onMessage($conn, self::USER_DISCONNECTED . self::DELIMITER . $id . self::DELIMITER . $this->nicks[$id]);
         $this->clients->detach($conn);

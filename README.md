@@ -1,5 +1,5 @@
 # ReactPHP Websocket Demo
-This demo was originally written as a demonstration for a talk on asynchronous programming with PHP.  Slide deck can be found [here](http://www.slideshare.net/SteveRhoades2/asynchronous-php-and-realtime-messaging).  The Demo using the fantastic libraries from [ReactPHP](https://github.com/reactphp) and Ratchet.
+This is a demonstration of a WebSocket server written in PHP.  The demo was originally written as a demonstration for a talk on asynchronous programming with PHP.  Slide deck can be found [here](http://www.slideshare.net/SteveRhoades2/asynchronous-php-and-realtime-messaging).  The Demo using the fantastic libraries from [ReactPHP](https://github.com/reactphp) and Ratchet.
 
 ## What does it do?
 This demonstration allows for multiple collaborators to draw and chat simultaneously and see the fruits of their labor updated in real time!
