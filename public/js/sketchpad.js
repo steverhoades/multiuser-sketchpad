@@ -69,10 +69,19 @@ class Sketchpad {
         this.messageInput.addEventListener('keypress', this.onInputBoxKeyPress.bind(this), false);
     }
 
+    /**
+     * Send the message string through the websocket connection
+     * @param msg
+     */
     send(msg) {
         this.connection.send(msg);
     }
 
+    /**
+     * Track mouse events and push them onto the commands stack.  Also we'll need to let the server know immediately that
+     * the user is actively drawing.
+     * @param event
+     */
     onCanvasMouseDown( event ) {
         event.preventDefault();
         // TODO attach to inupt box instance.
@@ -91,6 +100,10 @@ class Sketchpad {
         this.commands.push( COMMAND_POSITION, this.mouseX.toString( 16 ), this.mouseY.toString( 16 ), this.colorJSON );
     }
 
+    /**
+     * Set the drawing mode to false and let the server know immediately that drawing has ended
+     * @param event
+     */
     onDocumentMouseUp( event ) {
         this.mouseDown = false;
 
@@ -98,6 +111,12 @@ class Sketchpad {
         this.send("4" + this.settings.delimiter + COMMAND_MOUSEDOWN + this.settings.delimiter +"0");
     }
 
+    /**
+     * Track the movement of the mouse and push onto the commands stack.  If the mouse is in draw mode than draw the
+     * points onto the canvas.
+     *
+     * @param event
+     */
     onDocumentMouseMove( event ) {
         this.oldMouseX = this.mouseX;
         this.oldMouseY = this.mouseY;
@@ -125,6 +144,9 @@ class Sketchpad {
         }
     }
 
+    /**
+     * Send the aggregated commands to the server
+     */
     broadcast() {
         if ( !this.commands.length || this.connection.readyState != 1 /*WebSocket.OPEN*/ ) {
             return;
@@ -134,6 +156,12 @@ class Sketchpad {
         this.commands = [];
     }
 
+    /**
+     * Convert hex color code to rgb
+     *
+     * @param hex
+     * @returns {*}
+     */
     hexToRgb(hex) {
         var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
         return result ? {
@@ -143,19 +171,34 @@ class Sketchpad {
         } : 0;
     }
 
+    /**
+     * Set a color, should be rgb
+     * @param value
+     */
     setColor( value ) {
         this.currentColor   = this.hexToRgb(value);
         this.colorJSON      = JSON.stringify(this.currentColor);
     }
 
+    /**
+     * Save the drawing.  This will create a .png file
+     */
     saveDrawing() {
         this.canvas.saveDrawing();
     }
 
+    /**
+     * Show a message in the event that the client gets discontinued.
+     * @param event
+     */
     connectionClose( event ) {
         this.addServerMessage( 'Disconnected :/' );
     }
 
+    /**
+     * Parse any incoming messages.
+     * @param event
+     */
     connectionMessage( event ) {
 
         var dataArray = event.data.split( this.settings.delimiter );
@@ -243,6 +286,10 @@ class Sketchpad {
         }
     }
 
+    /**
+     * Did we get a chat message event?  if so, add the message and send it to the server.
+     * @param event
+     */
     onInputBoxKeyPress( event ) {
         // TODO attach inputbox instance
         switch( event.keyCode ) {
@@ -260,6 +307,12 @@ class Sketchpad {
         }
     }
 
+    /**
+     * New user has connected.  Add it to the users list and canvas.
+     * @param id
+     * @param level
+     * @param nickname
+     */
     addUser( id, level, nickname ) {
         var user = this.users[ id ] = {
             idColor: Math.floor( Math.random() * 128 + 32 ) + ',' + Math.floor( Math.random() * 128 + 32 ) + ',' + Math.floor( Math.random() * 128 + 32 ),
@@ -274,11 +327,20 @@ class Sketchpad {
         this.canvas.addUser(user);
     }
 
+    /**
+     * Change the nickname of the user.
+     * @param id
+     * @param nickname
+     */
     setUserNickname( id, nickname ) {
         this.users[ id ].nickname = nickname.replace(/\</gi,'&lt;').replace(/\>/gi,'&gt;').replace(/\ /gi,'&nbsp;');
         this.users[ id ].nicknameElement.innerHTML = this.users[ id ].nickname;
     }
 
+    /**
+     * The user has disconnected, we need to remove them from the stack
+     * @param id
+     */
     removeUser( id ) {
         var user = this.users[ id ];
 
@@ -288,6 +350,10 @@ class Sketchpad {
         }
     }
 
+    /**
+     * Change the nickname of the user
+     * TODO move this out of the class as it really doesn't belong here
+     */
     changeNickname() {
         var nickname = prompt("Set your nickname. (Max 10 chars)");
         if(nickname) {
@@ -296,11 +362,21 @@ class Sketchpad {
         }
     }
 
+    /**
+     * Set this clients nickname
+     * TODO this can probably be consolidated into setUserNickname
+     * @param nickname
+     */
     setNickname( nickname ) {
         nicknameSpan.innerHTML = nickname;
         this.send( COMMAND + this.settings.delimiter + COMMAND_SETNICKNAME + this.settings.delimiter + nickname );
     }
 
+    /**
+     * "Server" messages are really messages that the client shows in the messages list to indicate application level
+     * messages.
+     * @param value
+     */
     addServerMessage( value ) {
         var text = value.replace(/\</gi,'&lt;').replace(/\>/gi,'&gt;');
 
@@ -313,6 +389,11 @@ class Sketchpad {
         this.addMessageToStack( messageDiv );
     }
 
+    /**
+     * Add a message to the messages box
+     * @param id
+     * @param value
+     */
     addMessage( id, value ) {
         var user = this.users[ id ];
         var text = value.replace(/\</gi,'&lt;').replace(/\>/gi,'&gt;');
@@ -328,6 +409,10 @@ class Sketchpad {
         this.addMessageToStack( messageDiv );
     }
 
+    /**
+     * Add a message to this client that is from the current user.
+     * @param value
+     */
     addLocalMessage( value ) {
         var text = value.replace(/\</gi,'&lt;').replace(/\>/gi,'&gt;');
 
@@ -342,6 +427,10 @@ class Sketchpad {
         this.messageBox.appendChild( messageDiv );
     }
 
+    /**
+     * The messages stack.  After 40 messages start removing the first entries.
+     * @param div
+     */
     addMessageToStack( div ) {
         this.messagesArray.push( div );
 
@@ -354,6 +443,10 @@ class Sketchpad {
         this.messageBox.scrollTop = this.messageBox.scrollHeight;
     }
 
+    /**
+     * Send a chat message to the server.
+     * @param value
+     */
     sendMessage( value ) {
         this.send( COMMAND + this.settings.delimiter + COMMAND_MESSAGE + this.settings.delimiter + value );
     }
@@ -391,6 +484,14 @@ class SketchpadCanvas {
         this.canvasContext.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
 
+    /**
+     * Handle the drawing onto the canvas.
+     * @param x1
+     * @param y1
+     * @param x2
+     * @param y2
+     * @param color
+     */
     draw( x1, y1, x2, y2, color ) {
         var dx  = x2 - x1,
             dy = y2 - y1,
@@ -405,6 +506,9 @@ class SketchpadCanvas {
         context.stroke();
     }
 
+    /**
+     * Save the canvas to a png
+     */
     saveDrawing() {
         if ( window.sf_win ) window.sf_win.close();
 
@@ -412,6 +516,10 @@ class SketchpadCanvas {
         window.sf_win.document.write( "<body style='background-color:#ddd;'><a onclick='update_img()' style='text-decoration:underline;cursor:pointer;color:#44f;'>Update Image</a></br><img id='p_img' width='800px' ><script>document.title='Saving Canvas';function update_img(){document.getElementById('p_img').src=opener.canvas.toDataURL( 'image/png' );};update_img();<\/script>" );
     }
 
+    /**
+     * Add a user.  This will create a cursor that represents other connected users.
+     * @param user
+     */
     addUser(user) {
         var div = document.createElement( 'div' );
         div.style.position = 'absolute';
@@ -452,6 +560,14 @@ class SketchpadCanvas {
         container.appendChild( user.domElement );
     }
 
+    /**
+     * Move the user cursor to the x, y coordinates
+     * @param user
+     * @param x
+     * @param y
+     * @param color
+     * @param currentUser
+     */
     moveUser(user, x, y, color, currentUser ) {
         if ( user.mouseDown && user.x != 0 && user.y != 0 ) {
             this.draw( user.x, user.y, x, y, color );
@@ -470,12 +586,20 @@ class SketchpadCanvas {
         element.style.visibility = 'visible';
     }
 
+    /**
+     * Remove a user cursor
+     * @param user
+     */
     removeUser( user ) {
         if ( user && user.domElement) {
             container.removeChild( user.domElement );
         }
     }
 
+    /**
+     * Track down mousdown on the canvas element
+     * @param callback
+     */
     mousedown(callback) {
         this.canvas.addEventListener( 'mousedown', callback, false );
     }
