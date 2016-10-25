@@ -10,6 +10,11 @@ class Server implements MessageComponentInterface
     const USER_ID = 1;
     const USER_CONNECTED = 2;
     const USER_DISCONNECTED = 3;
+    const COMMAND = 4;
+    const COMMAND_SETNICKNAME = 0;
+    const COMMAND_POSITION = 1;
+    const COMMAND_MOUSEDOWN = 2;
+    const COMMAND_MESSAGE = 3;
     const DELIMITER = "|";
 
     protected $clients;
@@ -38,38 +43,33 @@ class Server implements MessageComponentInterface
         $this->id++;
 
         echo "Connecting {$this->id}" . PHP_EOL;
+        $_ = self::DELIMITER;
 
         $this->clients->attach($conn, $this->id);
         $this->nicks[$this->id] = "Guest {$this->id}";
         $this->drawing[$this->id] = false;
 
         // send user id
-        $this->sendDataToConnection($conn, [$this->id, self::USER_ID, $this->nicks[$this->id]]);
+        $conn->send($this->id . $_ . self::USER_ID . $_ . $this->nicks[$this->id]);
 
         // broadcast all existing users.
         $userList = [];
         foreach($this->nicks as $id => $nick) {
             if($id != $this->id) {
-                $userList[] = $id . self::DELIMITER . $nick;
+                $userList[] = $id . $_ . $nick;
             }
         }
-        $this->sendDataToConnection($conn, [$this->id, self::USER_LIST, join(self::DELIMITER, $userList)]);
+        $conn->send($this->id . $_ . self::USER_LIST . $_ . join($_, $userList));
 
             // send current canvas state
-        $this->sendDataToConnection($conn, [$this->id, '4', '2', '1']);
+        $conn->send($this->id . $_ . self::COMMAND . $_ . self::COMMAND_MOUSEDOWN . $_ . '1');
         foreach($this->drawState as $state) {
-            $this->sendDataToConnection($conn, [$this->id, $state]);
+            $conn->send($this->id . $_ . $state);
         }
-        $this->sendDataToConnection($conn, [$this->id, '4', '2', '0']);
+        $conn->send($this->id . $_ . self::COMMAND . $_ . self::COMMAND_MOUSEDOWN . $_ . '0');
 
         // broadcast new user
-        $this->onMessage($conn, self::USER_CONNECTED . self::DELIMITER . $this->id . self::DELIMITER . $this->nicks[$this->id]);
-    }
-
-    private function sendDataToConnection($conn, $data)
-    {
-        $data = (is_array($data)) ? join(self::DELIMITER, $data) : $data;
-        $conn->send($data);
+        $this->onMessage($conn, self::USER_CONNECTED . $_ . $this->id . $_ . $this->nicks[$this->id]);
     }
 
     /**
@@ -86,14 +86,22 @@ class Server implements MessageComponentInterface
 
         // check for nickname changes
         $data = explode(self::DELIMITER, $msg);
-        if($data[0] == 4 && $data[1] == 0) {
-            echo "storing nick {$data[2]}" .PHP_EOL;
-            $this->nicks[$id] = $data[2];
-        } elseif($data[0] == 4 && $data[1] == 2) {
-            // drawing on connection started
-            $this->drawing[$id] = $data[2] == 1;
-        } else if($this->drawing[$id]) {
-            $this->drawState[] = $msg;
+        if (self::COMMAND === (int) $data[0]) {
+            switch ($data[1]) {
+                case self::COMMAND_SETNICKNAME:
+                    $this->nicks[$id] = $data[2];
+                    break;
+
+                case self::COMMAND_MOUSEDOWN:
+                    $this->drawing[$id] = 1 === (int)$data[2];
+                    break;
+
+                case self::COMMAND_POSITION:
+                    if ($this->drawing[$id]) {
+                        $this->drawState[] = $msg;
+                    }
+                    break;
+            }
         }
 
         foreach($this->clients as $client) {
@@ -110,13 +118,15 @@ class Server implements MessageComponentInterface
      */
     public function onClose(ConnectionInterface $conn)
     {
-        $id = $this->clients[$conn];
+        echo "closing connection for $id" . PHP_EOL;
 
+        $id = $this->clients[$conn];
         $this->onMessage($conn, self::USER_DISCONNECTED . self::DELIMITER . $id . self::DELIMITER . $this->nicks[$id]);
+        $this->clients->detach($conn);
+
+        // cleanup
         unset($this->nicks[$id]);
         unset($this->drawing[$this->id]);
-        $this->clients->detach($conn);
-        echo "closing connection for $id" . PHP_EOL;
     }
 
     /**
