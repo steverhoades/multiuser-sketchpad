@@ -42,11 +42,15 @@ class Server implements MessageComponentInterface
     {
         $this->id++;
 
-        echo "Connecting {$this->id}" . PHP_EOL;
         $_ = self::DELIMITER;
 
+        // keep track of the connected client
         $this->clients->attach($conn, $this->id);
+
+        // default nickname
         $this->nicks[$this->id] = "Guest {$this->id}";
+
+        // initialize the drawing state for the user as false
         $this->drawing[$this->id] = false;
 
         // send user id
@@ -54,18 +58,25 @@ class Server implements MessageComponentInterface
 
         // broadcast all existing users.
         $userList = [];
-        foreach($this->nicks as $id => $nick) {
-            if($id != $this->id) {
+
+        foreach ($this->nicks as $id => $nick) {
+            if ($id != $this->id) {
                 $userList[] = $id . $_ . $nick;
             }
         }
+
+        // send the client the current list of users
         $conn->send($this->id . $_ . self::USER_LIST . $_ . join($_, $userList));
 
-            // send current canvas state
+        // send drawing start event so that the client will begin drawing.
         $conn->send($this->id . $_ . self::COMMAND . $_ . self::COMMAND_MOUSEDOWN . $_ . '1');
-        foreach($this->drawState as $state) {
+
+        // send the captured drawing points so the client will initialize the current canvas state
+        foreach ($this->drawState as $state) {
             $conn->send($this->id . $_ . $state);
         }
+
+        // send drawing end event so that the client will stop drawing.
         $conn->send($this->id . $_ . self::COMMAND . $_ . self::COMMAND_MOUSEDOWN . $_ . '0');
 
         // broadcast new user
@@ -82,10 +93,9 @@ class Server implements MessageComponentInterface
      */
     public function onMessage(ConnectionInterface $from, $msg)
     {
-        $id = $this->clients[$from];
+        $id     = $this->clients[$from];
+        $data   = explode(self::DELIMITER, $msg);
 
-        // check for nickname changes
-        $data = explode(self::DELIMITER, $msg);
         if (self::COMMAND === (int) $data[0]) {
             switch ($data[1]) {
                 case self::COMMAND_SETNICKNAME:
@@ -104,8 +114,8 @@ class Server implements MessageComponentInterface
             }
         }
 
-        foreach($this->clients as $client) {
-           if($from !== $client) {
+        foreach ($this->clients as $client) {
+           if ($from !== $client) {
                 $client->send($id . self::DELIMITER . $msg);
             }
         }
