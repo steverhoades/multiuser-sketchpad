@@ -1,5 +1,5 @@
 # ReactPHP Websocket Demo
-This is a demonstration of a WebSocket server written in PHP.  The demo was originally written as a demonstration for a talk on asynchronous programming with PHP.  Slide deck can be found [here](http://www.slideshare.net/SteveRhoades2/asynchronous-php-and-realtime-messaging).  The Demo using the fantastic libraries from [ReactPHP](https://github.com/reactphp) and Ratchet.
+This is a demonstration of a WebSocket server written in PHP.  The demo was originally written as a demonstration for a talk on asynchronous programming with PHP.  Slide deck can be found [here](http://www.slideshare.net/SteveRhoades2/asynchronous-php-and-realtime-messaging).  The Demo is using the fantastic libraries from [ReactPHP](https://github.com/reactphp) and Ratchet.
 
 ## What does it do?
 This demonstration allows for multiple collaborators to draw and chat simultaneously and see the fruits of their labor updated in real time!
@@ -13,7 +13,7 @@ $ composer install
 
 
 ## Run the Demo
-This sample is configured to run the web server on port 81 and the web socket server on port 8080.  You will want to make sure that these ports are available or open the server file located in bin/server.php and change the port numbers accordingly.
+This sample is configured to run the web server on port 81 and the web socket server on port 8085.  You will want to make sure that these ports are available or open the server file located in bin/server.php and change the port numbers accordingly.
 
 Since the demo runs on port 81 for the web server we'll need to start it with sudo (feel free to change this to any port you wish).
 
