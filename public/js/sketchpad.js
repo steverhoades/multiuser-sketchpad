@@ -244,11 +244,8 @@ class Sketchpad {
                             break;
 
                         case COMMAND_POSITION:
-                            var x = parseInt( dataArray[ position++ ], 16 );
-                            var y = parseInt( dataArray[ position++ ], 16 );
-
-                            user.x = x;
-                            user.y = y;
+                            user.x = parseInt( dataArray[ position++ ], 16 );
+                            user.y = parseInt( dataArray[ position++ ], 16 );
 
                             if (this.currentUserId != userId) {
                                 this.canvas.moveUser(user);
