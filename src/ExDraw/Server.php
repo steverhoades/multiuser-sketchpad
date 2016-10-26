@@ -13,7 +13,8 @@ class Server implements MessageComponentInterface
     const COMMAND = 4;
     const COMMAND_SETNICKNAME = 0;
     const COMMAND_POSITION = 1;
-    const COMMAND_MOUSEDOWN = 2;
+//    const COMMAND_MOUSEDOWN = 2;
+    const COMMAND_DRAW = 2;
     const COMMAND_MESSAGE = 3;
     const DELIMITER = "|";
 
@@ -68,16 +69,10 @@ class Server implements MessageComponentInterface
         // send the client the current list of users
         $conn->send($this->id . $_ . self::USER_LIST . $_ . join($_, $userList));
 
-        // send drawing start event so that the client will begin drawing.
-        $conn->send($this->id . $_ . self::COMMAND . $_ . self::COMMAND_MOUSEDOWN . $_ . '1');
-
         // send the captured drawing points so the client will initialize the current canvas state
         foreach ($this->drawState as $state) {
             $conn->send($this->id . $_ . $state);
         }
-
-        // send drawing end event so that the client will stop drawing.
-        $conn->send($this->id . $_ . self::COMMAND . $_ . self::COMMAND_MOUSEDOWN . $_ . '0');
 
         // broadcast new user
         $this->onMessage($conn, self::USER_CONNECTED . $_ . $this->id . $_ . $this->nicks[$this->id]);
@@ -86,6 +81,9 @@ class Server implements MessageComponentInterface
     /**
      * A new message was received from a connection.  Dispatch
      * that message to all other connected clients.
+     *
+     * The message can be a list of commands.  We only want to store the draw state, the following will listen
+     * for various messages that the server needs to keep track of.
      *
      * @param  ConnectionInterface $from
      * @param  String              $msg
@@ -97,25 +95,45 @@ class Server implements MessageComponentInterface
         $data   = explode(self::DELIMITER, $msg);
 
         if (self::COMMAND === (int) $data[0]) {
-            switch ($data[1]) {
-                case self::COMMAND_SETNICKNAME:
-                    $this->nicks[$id] = $data[2];
-                    break;
+            $position = 1;
+            $count = 0;
+            $dataLength = count($data);
+            $drawState = null;
 
-                case self::COMMAND_MOUSEDOWN:
-                    $this->drawing[$id] = 1 === (int)$data[2];
-                    break;
+            while ( $position < $dataLength ) {
 
-                case self::COMMAND_POSITION:
-                    if ($this->drawing[$id]) {
-                        $this->drawState[] = $msg;
-                    }
-                    break;
+                if ($count++ > 10000 ) {
+                    return;
+                }
+
+                switch ( $data[ $position++ ] ) {
+                    case self::COMMAND_SETNICKNAME:
+                        $this->nicks[$id] = $data[$position++];
+                        break;
+
+                    case self::COMMAND_POSITION:
+                        //increment by 2
+                        $position++;
+                        $position++;
+                        break;
+
+                    case self::COMMAND_DRAW:
+                        $drawState .= self::DELIMITER . self::COMMAND_DRAW . self::DELIMITER .$data[ $position++ ] . self::DELIMITER . $data[ $position++ ] . self::DELIMITER . $data[ $position++ ];
+                        break;
+
+                    case self::COMMAND_MESSAGE:
+                        $position++;
+                        break;
+                }
             }
         }
 
+        if ($drawState) {
+            $this->drawState[] = self::COMMAND . $drawState;
+        }
+
         foreach ($this->clients as $client) {
-           if ($from !== $client) {
+            if ($from !== $client) {
                 $client->send($id . self::DELIMITER . $msg);
             }
         }

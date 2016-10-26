@@ -15,8 +15,9 @@ const USER_LIST = 0,
       COMMAND = 4,
       COMMAND_SETNICKNAME = 0,
       COMMAND_POSITION = 1,
-      COMMAND_MOUSEDOWN = 2,
+      COMMAND_DRAW = 2,
       COMMAND_MESSAGE = 3;
+
 
 class Sketchpad {
     constructor(connection, canvas, messageInput, messageBox, options) {
@@ -84,7 +85,6 @@ class Sketchpad {
      */
     onCanvasMouseDown( event ) {
         event.preventDefault();
-        // TODO attach to inupt box instance.
         this.messageInput.blur();
 
         this.mouseDown = true;
@@ -94,10 +94,6 @@ class Sketchpad {
 
         this.mouseX = (event.clientX  + scrollLeft) - this.canvas.offsetLeft();
         this.mouseY = (event.clientY + scrollTop) - this.canvas.offsetTop();
-
-        // send right away
-        this.send( COMMAND + this.settings.delimiter + COMMAND_MOUSEDOWN + this.settings.delimiter +"1");
-        this.commands.push( COMMAND_POSITION, this.mouseX.toString( 16 ), this.mouseY.toString( 16 ), this.colorJSON );
     }
 
     /**
@@ -106,9 +102,6 @@ class Sketchpad {
      */
     onDocumentMouseUp( event ) {
         this.mouseDown = false;
-
-        // send right away
-        this.send( COMMAND + this.settings.delimiter + COMMAND_MOUSEDOWN + this.settings.delimiter +"0");
     }
 
     /**
@@ -129,19 +122,12 @@ class Sketchpad {
 
         if ( this.mouseDown ) {
             this.canvas.draw( this.oldMouseX, this.oldMouseY, this.mouseX, this.mouseY, this.currentColor );
+            this.commands.push( COMMAND_DRAW, this.mouseX.toString( 16 ), this.mouseY.toString( 16 ), this.colorJSON );
+            return;
         }
 
-        if ( !this.commands.length ) {
-            this.commands.push( COMMAND_POSITION, this.mouseX.toString( 16 ), this.mouseY.toString( 16 ), this.colorJSON );
-        } else if ( this.mouseDown ) {
-            var deltaX = this.mouseX - this.oldMouseX;
-            var deltaY = this.mouseY - this.oldMouseY;
-
-            deltaX = deltaX == 0 ? "" : deltaX;
-            deltaY = deltaY == 0 ? "" : deltaY;
-
-            this.commands.push( COMMAND_POSITION, deltaX.toString( 16 ), deltaY.toString( 16 ), this.colorJSON );
-        }
+        // send position update
+        this.commands.push( COMMAND_POSITION, this.mouseX.toString( 16 ), this.mouseY.toString( 16 ) );
     }
 
     /**
@@ -236,14 +222,13 @@ class Sketchpad {
                 break;
 
             case COMMAND:
-
-                var userMouseX = 0;
-                var userMouseY = 0;
                 var count = 0;
 
                 if(this.users[ userId ] === undefined) {
                     this.addUser(userId, userId, userId.toString());
                 }
+
+                var user = this.users[ userId ];
 
                 while ( position < dataLength ) {
 
@@ -256,24 +241,36 @@ class Sketchpad {
                             var newNickname = dataArray[ position++ ];
                             this.addMessage( userId, "Is now known as "+ newNickname);
                             this.setUserNickname( userId,  newNickname);
-
                             break;
 
                         case COMMAND_POSITION:
+                            var x = parseInt( dataArray[ position++ ], 16 );
+                            var y = parseInt( dataArray[ position++ ], 16 );
 
+                            user.x = x;
+                            user.y = y;
+
+                            if (this.currentUserId != userId) {
+                                this.canvas.moveUser(user);
+                            }
+                            break;
+
+                        case COMMAND_DRAW:
                             var x = parseInt( dataArray[ position++ ], 16 );
                             var y = parseInt( dataArray[ position++ ], 16 );
                             var colorVal = dataArray[ position++ ];
                             var color = (colorVal == 0 || colorVal == '') ? 0 : JSON.parse(colorVal);
 
-                            userMouseX += x ? x : 0;
-                            userMouseY += y ? y : 0;
+                            if ( x != 0 && y != 0 ) {
+                                this.canvas.draw( user.x, user.y, x, y, color );
+                            }
 
-                            this.canvas.moveUser(this.users[ userId ], userMouseX, userMouseY, color, this.currentUserId == userId);
-                            break;
+                            user.x = x;
+                            user.y = y;
 
-                        case COMMAND_MOUSEDOWN:
-                            this.users[ userId ].mouseDown = dataArray[ position++ ] == '1';
+                            if (this.currentUserId != userId) {
+                                this.canvas.moveUser(user);
+                            }
                             break;
 
                         case COMMAND_MESSAGE:
@@ -569,18 +566,7 @@ class SketchpadCanvas {
      * @param color
      * @param currentUser
      */
-    moveUser(user, x, y, color, currentUser ) {
-        if ( user.mouseDown && user.x != 0 && user.y != 0 ) {
-            this.draw( user.x, user.y, x, y, color );
-        }
-
-        user.x = x;
-        user.y = y;
-
-        if (currentUser) {
-            return;
-        }
-
+    moveUser(user) {
         var element = user.domElement;
         element.style.left = ( user.x - 8 ) + 'px';
         element.style.top = ( user.y - 8 ) + 'px';
