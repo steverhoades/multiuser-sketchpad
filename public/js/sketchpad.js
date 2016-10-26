@@ -461,6 +461,7 @@ class SketchpadCanvas {
         this.canvas = canvas;
 
         this.container = document.createElement('div');
+        this.container.id = "container";
 
         // should have the same left value as the canvas
         this.container.style.left = this.canvas.style.left;
