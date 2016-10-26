@@ -13,7 +13,6 @@ class Server implements MessageComponentInterface
     const COMMAND = 4;
     const COMMAND_SETNICKNAME = 0;
     const COMMAND_POSITION = 1;
-//    const COMMAND_MOUSEDOWN = 2;
     const COMMAND_DRAW = 2;
     const COMMAND_MESSAGE = 3;
     const DELIMITER = "|";
@@ -93,6 +92,7 @@ class Server implements MessageComponentInterface
     {
         $id     = $this->clients[$from];
         $data   = explode(self::DELIMITER, $msg);
+        $_      = self::DELIMITER;
 
         if (self::COMMAND === (int) $data[0]) {
             $position = 1;
@@ -118,7 +118,8 @@ class Server implements MessageComponentInterface
                         break;
 
                     case self::COMMAND_DRAW:
-                        $drawState .= self::DELIMITER . self::COMMAND_DRAW . self::DELIMITER .$data[ $position++ ] . self::DELIMITER . $data[ $position++ ] . self::DELIMITER . $data[ $position++ ];
+                        // positions: x, y, color
+                        $drawState .= $_ . self::COMMAND_DRAW . $_ . $data[$position++] . $_ . $data[$position++] . $_ . $data[$position++];
                         break;
 
                     case self::COMMAND_MESSAGE:
@@ -134,7 +135,7 @@ class Server implements MessageComponentInterface
 
         foreach ($this->clients as $client) {
             if ($from !== $client) {
-                $client->send($id . self::DELIMITER . $msg);
+                $client->send($id . $_ . $msg);
             }
         }
     }
