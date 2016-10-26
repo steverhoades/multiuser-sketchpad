@@ -23,7 +23,8 @@ Class StaticFile
     public function getPath($request)
     {
         $path = $request->getPath();
-        if($path == "/") {
+
+        if ($path == "/") {
             $path = "index.html";
         }
 
@@ -32,41 +33,33 @@ Class StaticFile
 
     public function canHandleRequest($request)
     {
-        $path = $this->getPath($request);
-        $fullPath = $this->docroot . DIRECTORY_SEPARATOR . $path;
-        echo $fullPath;
-        if(!file_exists($fullPath)) {
+        $path       = $this->getPath($request);
+        $fullPath   = $this->docroot . DIRECTORY_SEPARATOR . $path;
+
+        if (!file_exists($fullPath)) {
             return false;
         }
 
         return true;
     }
 
-	public function handleRequest($request, $response, $connection)
-	{
+    public function handleRequest($request, $response, $connection)
+    {
 
         $path     = $this->getPath($request);
         $fullPath = $this->docroot . DIRECTORY_SEPARATOR . $path;
-
-        echo "Loading static file: $path" . PHP_EOL;
-        // if(isset($this->fileCache[$path])) {
-        //     echo "cache hit for: $path" . PHP_EOL;
-        //     $response->setBody($this->fileCache[$path]);
-        //     return $this->send($connection, $response);
-        // }
-
         $fd       = fopen($fullPath, "r");
 
         /* @note LibEvent doesn't handle file reads asynchronously (non-blocking) */
         stream_set_blocking($fd, 0);
-        $stream   = new Stream($fd, $this->loop);
+        $stream = new Stream($fd, $this->loop);
 
         $this->buffer[$path] = '';
 
         $stream->on('data',  Partial\bind([$this, 'onData'],  $path));
         $stream->on('close', Partial\bind([$this, 'onClose'], $path, $response, $connection));
         $stream->on('error', Partial\bind([$this, 'onError'], $path, $response, $connection));
-	}
+    }
 
     public function send($connection, $response)
     {
@@ -82,15 +75,13 @@ Class StaticFile
     public function onClose($path, $response, $connection, $stream)
     {
         $this->fileCache[$path] = $this->buffer[$path];
-        echo "Closing static file: $path" . PHP_EOL;
+
         $response->setBody($this->buffer[$path]);
         $this->send($connection, $response);
 
-        if(isset($this->buffer[$path])) {
+        if (isset($this->buffer[$path])) {
             unset($this->buffer[$path]);
         }
-
-
     }
 
     public function onError($path, $response, $connection, $error, $stream)

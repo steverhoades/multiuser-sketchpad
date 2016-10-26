@@ -19,18 +19,18 @@ Class Server extends EventEmitter implements HttpServerInterface
         $this->router = $router;
     }
 
-	public function onOpen(ConnectionInterface $conn, RequestInterface $request = null)
-	{
+    public function onOpen(ConnectionInterface $conn, RequestInterface $request = null)
+    {
         $this->emit('open', array($conn, $request));
-		try {
-			$this->router->dispatch($request, $conn);
-		} catch(Exception $e) {
+        try {
+            $this->router->dispatch($request, $conn);
+        } catch (Exception $e) {
             $response = new Response(500);
             $response->setBody("Server error.");
             $conn->send($response);
             $conn->close();
-		}
-	}
+        }
+    }
 
     /**
      * Triggered when a client sends data through the socket
