@@ -93,12 +93,12 @@ class Server implements MessageComponentInterface
         $id     = $this->clients[$from];
         $data   = explode(self::DELIMITER, $msg);
         $_      = self::DELIMITER;
+        $drawState = null;
 
         if (self::COMMAND === (int) $data[0]) {
             $position = 1;
             $count = 0;
             $dataLength = count($data);
-            $drawState = null;
 
             while ( $position < $dataLength ) {
 
