@@ -71,7 +71,10 @@
                 }
 
                 function changeNickname() {
-                    sketchpad.changeNickname();
+                    var nickname = prompt("Set your nickname. (Max 10 chars)");
+                    if(nickname) {
+                        sketchpad.setNickname(nickname);
+                    }
                 }
 
                 window.addEventListener('resize', onResize, false );
