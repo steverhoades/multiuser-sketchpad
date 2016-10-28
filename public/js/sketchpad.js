@@ -21,14 +21,12 @@ const USER_LIST = 0,
 
 class Sketchpad {
     constructor(connection, canvas, messageInput, messageBox, options) {
-        this.users = {};
         this.mouseX = 0;
         this.mouseY = 0;
         this.oldMouseX = 0;
         this.oldMouseY = 0;
         this.mouseDown = false;
         this.commands = [];
-        this.messagesArray = [];
         this.lastMessage = '';
         this.currentUserId = null;
         this.currentColor = 0;
@@ -50,13 +48,14 @@ class Sketchpad {
         }
 
         this.canvas = new SketchpadCanvas(canvas);
+        this.userManager = new SketchPadUserManager(this.canvas.left());
+        this.chatManager = new SketchPadChatManager(this.userManager, messageBox);
 
         this.connection = connection;
         this.connection.onclose = this.connectionClose.bind(this);
         this.connection.onmessage = this.connectionMessage.bind(this);
 
         this.messageInput = messageInput;
-        this.messageBox = messageBox;
 
         // setup broadcast interval
         setInterval(this.broadcast.bind(this), 100);
@@ -178,7 +177,7 @@ class Sketchpad {
      * @param event
      */
     connectionClose( event ) {
-        this.addServerMessage( 'Disconnected :/' );
+        this.chatManager.addServerMessage( 'Disconnected :/' );
     }
 
     /**
@@ -196,8 +195,7 @@ class Sketchpad {
 
             case USER_ID:
                 var name = dataArray[ position++ ];
-                var nicknameSpan = document.getElementById( 'nickname' );
-                nicknameSpan.innerHTML = name;
+                this.chatManager.setNickname(name);
                 this.currentUserId = userId;
                 break;
 
@@ -205,30 +203,30 @@ class Sketchpad {
                 while ( position < dataLength ) {
                     var id = dataArray[ position++ ];
                     if ( id ) {
-                        this.addUser( id, id, dataArray[ position++ ] );
+                        this.userManager.addUser( id, id, dataArray[ position++ ] );
                     }
                 }
                 break;
 
             case USER_CONNECTED:
-                this.addUser( userId, userId, dataArray[ 3 ] );
-                this.addMessage( userId, "Connected :)");
+                this.userManager.addUser( userId, userId, dataArray[ 3 ] );
+                this.chatManager.addMessage( userId, "Connected :)");
                 break;
 
             case USER_DISCONNECTED:
-                this.addMessage( userId, "Disconnected :/");
-                this.removeUser( userId );
+                this.chatManager.addMessage( userId, "Disconnected :/");
+                this.userManager.removeUser( userId );
 
                 break;
 
             case COMMAND:
                 var count = 0;
 
-                if(this.users[ userId ] === undefined) {
-                    this.addUser(userId, userId, userId.toString());
+                if(this.userManager.users[ userId ] === undefined) {
+                    this.userManager.addUser(userId, userId, userId.toString());
                 }
 
-                var user = this.users[ userId ];
+                var user = this.userManager.users[ userId ];
 
                 while ( position < dataLength ) {
 
@@ -239,16 +237,18 @@ class Sketchpad {
                     switch ( parseInt( dataArray[ position++ ] ) ) {
                         case COMMAND_SETNICKNAME:
                             var newNickname = dataArray[ position++ ];
-                            this.addMessage( userId, "Is now known as "+ newNickname);
-                            this.setUserNickname( userId,  newNickname);
+                            this.chatManager.addMessage( userId, "Is now known as "+ newNickname);
+                            this.userManager.setUserNickname( userId,  newNickname);
                             break;
 
                         case COMMAND_POSITION:
-                            user.x = parseInt( dataArray[ position++ ], 16 );
-                            user.y = parseInt( dataArray[ position++ ], 16 );
+                            var x = parseInt( dataArray[ position++ ], 16 );
+                            var y = parseInt( dataArray[ position++ ], 16 );
+
+                            user.position(x, y);
 
                             if (this.currentUserId != userId) {
-                                this.canvas.moveUser(user);
+                                user.move();
                             }
                             break;
 
@@ -262,16 +262,15 @@ class Sketchpad {
                                 this.canvas.draw( user.x, user.y, x, y, color );
                             }
 
-                            user.x = x;
-                            user.y = y;
+                            user.position(x, y);
 
                             if (this.currentUserId != userId) {
-                                this.canvas.moveUser(user);
+                                user.move();
                             }
                             break;
 
                         case COMMAND_MESSAGE:
-                            this.addMessage( userId, dataArray[ position++ ] );
+                            this.chatManager.addMessage( userId, dataArray[ position++ ] );
                             break;
                     }
                 }
@@ -285,7 +284,6 @@ class Sketchpad {
      * @param event
      */
     onInputBoxKeyPress( event ) {
-        // TODO attach inputbox instance
         switch( event.keyCode ) {
             case 13: // [ RETURN ]
                 var value = this.messageInput.value;
@@ -293,7 +291,7 @@ class Sketchpad {
                 if ( value != "" && value != this.lastMessage ) {
                     this.lastMessage = value;
                     this.sendMessage( value );
-                    this.addLocalMessage( value );
+                    this.chatManager.addLocalMessage( value );
                 }
 
                 this.messageInput.value = "";
@@ -302,68 +300,38 @@ class Sketchpad {
     }
 
     /**
-     * New user has connected.  Add it to the users list and canvas.
-     * @param id
-     * @param level
-     * @param nickname
-     */
-    addUser( id, level, nickname ) {
-        var user = this.users[ id ] = {
-            idColor: Math.floor( Math.random() * 128 + 32 ) + ',' + Math.floor( Math.random() * 128 + 32 ) + ',' + Math.floor( Math.random() * 128 + 32 ),
-            x: 0,
-            y: 0,
-            level: parseInt( level ),
-            nickname: (nickname == '' || nickname === undefined) ? id : nickname.replace(/\</gi,'&lt;').replace(/\>/gi,'&gt;').replace(/\ /gi,'&nbsp;'),
-            color: 0,
-            mouseDown: false
-        };
-
-        this.canvas.addUser(user);
-    }
-
-    /**
-     * Change the nickname of the user.
-     * @param id
-     * @param nickname
-     */
-    setUserNickname( id, nickname ) {
-        this.users[ id ].nickname = nickname.replace(/\</gi,'&lt;').replace(/\>/gi,'&gt;').replace(/\ /gi,'&nbsp;');
-        this.users[ id ].nicknameElement.innerHTML = this.users[ id ].nickname;
-    }
-
-    /**
-     * The user has disconnected, we need to remove them from the stack
-     * @param id
-     */
-    removeUser( id ) {
-        var user = this.users[ id ];
-
-        if ( user ) {
-            this.canvas.removeUser(user);
-            delete this.users[ id ];
-        }
-    }
-
-    /**
-     * Change the nickname of the user
-     * TODO move this out of the class as it really doesn't belong here
-     */
-    changeNickname() {
-        var nickname = prompt("Set your nickname. (Max 10 chars)");
-        if(nickname) {
-            nickname = nickname.slice( 0, 10 ).replace(/\</gi,'&lt;').replace(/\>/gi,'&gt;').replace(/\ /gi,'&nbsp;');
-            this.setNickname( nickname );
-        }
-    }
-
-    /**
-     * Set this clients nickname
-     * TODO this can probably be consolidated into setUserNickname
+     * Public API to change the current users nickname
      * @param nickname
      */
     setNickname( nickname ) {
-        nicknameSpan.innerHTML = nickname;
+        this.chatManager.setNickname(nickname);
         this.send( COMMAND + this.settings.delimiter + COMMAND_SETNICKNAME + this.settings.delimiter + nickname );
+    }
+
+    /**
+     * Send a chat message to the server.
+     * @param value
+     */
+    sendMessage( value ) {
+        this.send( COMMAND + this.settings.delimiter + COMMAND_MESSAGE + this.settings.delimiter + value );
+    }
+}
+
+/**
+ * Encapsulates the logic for adding chat messages to the the message box
+ */
+class SketchPadChatManager {
+    constructor(userManager, messageBox) {
+        this.userManager = userManager;
+        this.nickname;
+        this.messageBox = messageBox;
+        this.messagesArray = [];
+    }
+
+    setNickname(nickname) {
+        this.nickname = nickname.slice( 0, 10 ).replace(/\</gi,'&lt;').replace(/\>/gi,'&gt;').replace(/\ /gi,'&nbsp;');
+        var nicknameSpan = document.getElementById( 'nickname' );
+        nicknameSpan.innerHTML = this.nickname;
     }
 
     /**
@@ -372,15 +340,16 @@ class Sketchpad {
      * @param value
      */
     addServerMessage( value ) {
-        var text = value.replace(/\</gi,'&lt;').replace(/\>/gi,'&gt;');
+        var text = this.filter(value);
 
-        var messageDiv = document.createElement( 'div' );
-        messageDiv.style.width = '155px';
-        messageDiv.style.marginBottom = '5px';
-        messageDiv.style.overflow = 'hidden';
+        var messageDiv = this.messageDiv();
         messageDiv.innerHTML = '<strong>' + text + '</strong>';
 
         this.addMessageToStack( messageDiv );
+    }
+
+    filter(text) {
+        return text.replace(/\</gi,'&lt;').replace(/\>/gi,'&gt;');
     }
 
     /**
@@ -389,18 +358,25 @@ class Sketchpad {
      * @param value
      */
     addMessage( id, value ) {
-        var user = this.users[ id ];
-        var text = value.replace(/\</gi,'&lt;').replace(/\>/gi,'&gt;');
+        var user = this.userManager.users[ id ];
+        var text = this.filter(value);
 
+        var messageDiv = this.messageDiv();
+        messageDiv.style.color = 'rgb(' + user.idColor + ')';
+        messageDiv.innerHTML = '<strong>' + user.nickname + ':</strong> ' + text;
+
+        if ( user.level == 0 ) messageDiv.style.textDecoration = 'underline';
+
+        this.addMessageToStack( messageDiv );
+    }
+
+    messageDiv() {
         var messageDiv = document.createElement( 'div' );
         messageDiv.style.width = '155px';
         messageDiv.style.marginBottom = '5px';
         messageDiv.style.overflow = 'hidden';
-        messageDiv.style.color = 'rgb(' + user.idColor + ')';
-        messageDiv.innerHTML = '<strong>' + user.nickname + ':</strong> ' + text;
-        if ( user.level == 0 ) messageDiv.style.textDecoration = 'underline';
 
-        this.addMessageToStack( messageDiv );
+        return messageDiv;
     }
 
     /**
@@ -408,12 +384,9 @@ class Sketchpad {
      * @param value
      */
     addLocalMessage( value ) {
-        var text = value.replace(/\</gi,'&lt;').replace(/\>/gi,'&gt;');
+        var text = this.filter(value);
 
-        var messageDiv = document.createElement( 'div' );
-        messageDiv.style.width = '155px';
-        messageDiv.style.marginBottom = '5px';
-        messageDiv.style.overflow = 'hidden';
+        var messageDiv = this.messageDiv();
         messageDiv.innerHTML = '<strong>' + nicknameSpan.innerHTML + ':</strong> ' + text;
 
         this.addMessageToStack( messageDiv );
@@ -436,29 +409,19 @@ class Sketchpad {
         this.messageBox.appendChild( div );
         this.messageBox.scrollTop = this.messageBox.scrollHeight;
     }
-
-    /**
-     * Send a chat message to the server.
-     * @param value
-     */
-    sendMessage( value ) {
-        this.send( COMMAND + this.settings.delimiter + COMMAND_MESSAGE + this.settings.delimiter + value );
-    }
 }
 
 /**
- * The follow object encapsulates the logic around the sketchpad drawing.
- * @param canvas
+ * Encapsulates the logic for dealing with users, also sets up the cursor box (container)
  */
-class SketchpadCanvas {
-    constructor(canvas) {
-        this.canvas = canvas;
-
+class SketchPadUserManager {
+    constructor(leftPosition) {
+        this.users = [];
         this.container = document.createElement('div');
         this.container.id = "container";
 
         // should have the same left value as the canvas
-        this.container.style.left = this.canvas.style.left;
+        this.container.style.left = leftPosition || 0;
 
         // ignore events on the cursor view
         this.container.addEventListener('mouseover', function (event) {
@@ -470,7 +433,104 @@ class SketchpadCanvas {
 
         // append to the document
         document.getElementsByTagName('body')[0].appendChild(this.container);
+    }
 
+    addUser(id, level, nickname) {
+        this.users[id] = new SketchPadUser(id, level, nickname);
+        this.container.appendChild( this.users[id].domElement );
+    }
+
+    removeUser(id) {
+        if (this.users[id] && this.users[id].domElement) {
+            this.container.removeChild(this.users[id].domElement);
+            delete this.users[id];
+        }
+    }
+
+    setUserNickname(id, nickname) {
+        if (this.users[id]) {
+            this.users[id].setNickname(nickname);
+        }
+    }
+}
+
+/**
+ * User object properties as well as the cursor representation of the user
+ * TODO separate the view and model logic
+ */
+class SketchPadUser {
+    constructor(id, level, nickname) {
+        this.id = id;
+        this.idColor = Math.floor( Math.random() * 128 + 32 ) + ',' + Math.floor( Math.random() * 128 + 32 ) + ',' + Math.floor( Math.random() * 128 + 32 );
+        this.x = 0;
+        this.y = 0;
+        this.level = parseInt( level );
+        this.nickname = 'Guest';
+
+        this.domElement = document.createElement( 'div' );
+        this.nicknameElement = document.createElement( 'span' );
+
+        var div = this.domElement;
+        div.style.position = 'absolute';
+        div.style.visibility = 'hidden';
+
+        var canvas = document.createElement( 'canvas' );
+        canvas.width = 16;
+        canvas.height = 16;
+
+        div.appendChild( canvas );
+
+        var context = canvas.getContext( '2d' );
+        context.lineWidth = 0.2;
+        context.fillStyle = 'rgba(' + this.idColor + ', 0.2)';
+        context.strokeStyle = 'rgb(' + this.idColor + ')';
+
+        context.beginPath();
+        context.arc( 8, 8, 6, 0, Math.PI * 2, true );
+        context.closePath();
+        context.fill();
+        context.stroke();
+
+        var nicknameDiv = this.nicknameElement;
+        nicknameDiv.style.position = 'absolute';
+        nicknameDiv.style.top = '3px';
+        nicknameDiv.style.left = '18px';
+        nicknameDiv.style.color = 'rgb(' + this.idColor + ')';
+        nicknameDiv.style.fontFamily = 'Helvetica, Arial';
+        nicknameDiv.style.fontSize = '9px';
+
+        this.setNickname(nickname);
+
+        if ( this.level == 0 ) nicknameDiv.style.textDecoration = 'underline';
+        div.appendChild( nicknameDiv );
+    }
+
+    position(x, y) {
+        this.x = x;
+        this.y = y;
+    }
+
+    move() {
+        var element = this.domElement;
+        element.style.left = ( this.x - 8 ) + 'px';
+        element.style.top = ( this.y - 8 ) + 'px';
+        element.style.visibility = 'visible';
+    }
+
+    setNickname(nickname) {
+        this.nickname = (nickname == '' || nickname === undefined) ? id : nickname.replace(/\</gi,'&lt;').replace(/\>/gi,'&gt;').replace(/\ /gi,'&nbsp;');
+        this.nicknameElement.innerHTML = this.nickname;
+    }
+}
+
+
+/**
+ * The follow object encapsulates the logic around the sketchpad drawing.
+ * @param canvas
+ */
+class SketchpadCanvas {
+    constructor(canvas) {
+        this.canvas = canvas;
 
         // setup canvas context
         this.canvasContext = this.canvas.getContext('2d');
@@ -512,75 +572,6 @@ class SketchpadCanvas {
     }
 
     /**
-     * Add a user.  This will create a cursor that represents other connected users.
-     * @param user
-     */
-    addUser(user) {
-        var div = document.createElement( 'div' );
-        div.style.position = 'absolute';
-        div.style.visibility = 'hidden';
-        user.domElement = div;
-
-        var canvas = document.createElement( 'canvas' );
-        canvas.width = 16;
-        canvas.height = 16;
-
-        div.appendChild( canvas );
-
-        var context = canvas.getContext( '2d' );
-        context.lineWidth = 0.2;
-        context.fillStyle = 'rgba(' + user.idColor + ', 0.2)';
-        context.strokeStyle = 'rgb(' + user.idColor + ')';
-
-        context.beginPath();
-        context.arc( 8, 8, 6, 0, Math.PI * 2, true );
-        context.closePath();
-        context.fill();
-        context.stroke();
-
-        var nicknameDiv = document.createElement( 'span' );
-        nicknameDiv.style.position = 'absolute';
-        nicknameDiv.style.top = '3px';
-        nicknameDiv.style.left = '18px';
-        nicknameDiv.style.color = 'rgb(' + user.idColor + ')';
-        nicknameDiv.style.fontFamily = 'Helvetica, Arial';
-        nicknameDiv.style.fontSize = '9px';
-        nicknameDiv.innerHTML = user.nickname;
-
-        if ( user.level == 0 ) nicknameDiv.style.textDecoration = 'underline';
-        div.appendChild( nicknameDiv );
-
-        user.nicknameElement = nicknameDiv;
-
-        container.appendChild( user.domElement );
-    }
-
-    /**
-     * Move the user cursor to the x, y coordinates
-     * @param user
-     * @param x
-     * @param y
-     * @param color
-     * @param currentUser
-     */
-    moveUser(user) {
-        var element = user.domElement;
-        element.style.left = ( user.x - 8 ) + 'px';
-        element.style.top = ( user.y - 8 ) + 'px';
-        element.style.visibility = 'visible';
-    }
-
-    /**
-     * Remove a user cursor
-     * @param user
-     */
-    removeUser( user ) {
-        if ( user && user.domElement) {
-            container.removeChild( user.domElement );
-        }
-    }
-
-    /**
      * Track down mousdown on the canvas element
      * @param callback
      */
@@ -594,5 +585,9 @@ class SketchpadCanvas {
 
     offsetTop() {
         return this.canvas.offsetTop;
+    }
+
+    left() {
+        return this.canvas.style.left;
     }
 }
