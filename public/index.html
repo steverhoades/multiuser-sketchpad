@@ -53,10 +53,16 @@
                     sketchpad.setColor(v);
                 });
 
-                var colorSelect = document.getElementById('color_box');
-                colorSelect.addEventListener('focusout', function(event) {
-                    sketchpad.setColor(event.target.value);
-                });
+                function changeNickname() {
+                    var nickname = prompt("Set your nickname. (Max 10 chars)");
+                    if(nickname) {
+                        sketchpad.setNickname(nickname);
+                    }
+                }
+
+                setTimeout(function() {
+                    changeNickname();
+                }, 1000);
 
                 // if window is resized, fix the panel.
                 // TODO remove this hack and replace with a css solution
@@ -70,21 +76,10 @@
                     messages.style.height = ( screenHeight - 260 ) + 'px';
                 }
 
-                function changeNickname() {
-                    var nickname = prompt("Set your nickname. (Max 10 chars)");
-                    if(nickname) {
-                        sketchpad.setNickname(nickname);
-                    }
-                }
-
                 window.addEventListener('resize', onResize, false );
 
                 // fix panel height
                 onResize();
-
-                setTimeout(function() {
-                    changeNickname();
-                }, 1000);
             }
         </script>
     </body>
