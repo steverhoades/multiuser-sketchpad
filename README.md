@@ -13,7 +13,7 @@ $ composer install
 
 
 ## Run the Demo
-This sample is configured to run the web server on port 81 and the web socket server on port 8085.  You will want to make sure that these ports are available or open the server file located in bin/server.php and change the port numbers accordingly.
+This sample is configured to run the web server on port 81 and the web socket server on port 8085.  You will want to make sure that these ports are available or open the server file located in bin/server.php and the ws connection url in public/index.html and change the port numbers accordingly.
 
 Since the demo runs on port 81 for the web server we'll need to start it with sudo (feel free to change this to any port you wish).
 
@@ -31,7 +31,7 @@ First things first, when using ReactPHP we need the Event Loop.
 ```php
 $loop = React\EventLoop\Factory::create();
 ```
-This code uses the event loop factory which will determine which event loop to use based on the extensions loaded on your system.  If it cannot find any it will fall back to using the system select loop.  Although ineffecient it will be perfectly fine for this demo.
+This code uses the event loop factory which will determine which event loop to use based on the extensions loaded on your system.  If it cannot find any it will fall back to using the system select loop.  Although inefficient it will be perfectly fine for this demo.
 
 Next we create the HTTP Server to server the .html client and other static files such as CSS and Javascript.
 
