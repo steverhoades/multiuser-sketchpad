@@ -11,16 +11,27 @@ After downloading the demo code you will need to run composer install from the r
 $ composer install
 ```
 
+## Run the Demo via Docker
+First you need to build the docker container
+```bash
+docker build -t websocket-demo .
+```
+
+Then run the docker container
+```bash
+docker run -ti -p 80:80 -p 8080:8080 websocket-demo
+```
 
 ## Run the Demo
-This sample is configured to run the web server on port 81 and the web socket server on port 8085.  You will want to make sure that these ports are available or open the server file located in bin/server.php and the ws connection url in public/index.html and change the port numbers accordingly.
+This sample is configured to run the web server on port 80 and the web socket server on port 8080.  You will want to make sure that these ports are available or open the server file located in bin/server.php and the ws connection url in public/index.html and change the port numbers accordingly.
 
-Since the demo runs on port 81 for the web server we'll need to start it with sudo (feel free to change this to any port you wish).
+Since the demo runs on port 80 for the web server we'll need to start it with sudo (feel free to change this to any port you wish).
 
 ```bash
 $ sudo php bin/server.php > /dev/null 2>&1 &
 ```
-Once running open [http://127.0.0.1:81](http://127.0.0.1:81) in multiple browser windows, ideally side by side. 
+
+Once running open [http://127.0.0.1:80](http://127.0.0.1:80) in multiple browser windows, ideally side by side.
 
 ## Code of Interest
 
@@ -37,7 +48,7 @@ Next we create the HTTP Server to server the .html client and other static files
 
 ```php
 $httpSocket = new React\Socket\Server($loop);
-$httpSocket->listen('81', '0.0.0.0');
+$httpSocket->listen('80', '0.0.0.0');
 $httpServer = new IoServer(
     new HttpServer(
         new ConnectionHandler($router)
@@ -46,12 +57,12 @@ $httpServer = new IoServer(
     $loop
 );
 ```
-Here we are using the react socket server to bind to port 81 on all interfaces and then creating the Ratchet IoServer which in turn takes the Ratchet HttpServer, HttpSocket and EventLoop objects.  The ConnectionHandler that is passed to the HttpServer is used to route the requests to their corresponding files.
+Here we are using the react socket server to bind to port 80 on all interfaces and then creating the Ratchet IoServer which in turn takes the Ratchet HttpServer, HttpSocket and EventLoop objects.  The ConnectionHandler that is passed to the HttpServer is used to route the requests to their corresponding files.
 
 Next we create the WebSocket server.
 ```php
 $socketServer = new React\Socket\Server($loop);
-$socketServer->listen('8085', '0.0.0.0');
+$socketServer->listen('8080', '0.0.0.0');
 $websocketServer = new IoServer(
     new HttpServer(
         new WsServer(

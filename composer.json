@@ -11,9 +11,9 @@
   ],
   "require": {
     "php": ">=5.5.0",
-    "react/react": "dev-master as 0.4.2",
+    "react/react": "0.4.2",
     "react/partial": "~2.0",
-    "cboden/ratchet": "dev-master"
+    "cboden/ratchet": "0.3.6"
   },
   "autoload": {
     "psr-4": {

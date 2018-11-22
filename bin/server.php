@@ -39,7 +39,7 @@ $router->setFileHandler($fileHandler);
     Note: Requires HAProxy to be configured.
 */
 $socketServer = new React\Socket\Server($loop);
-$socketServer->listen('8085', '0.0.0.0');
+$socketServer->listen('8080', '0.0.0.0');
 $websocketServer = new IoServer(
     new HttpServer(
         new WsServer(
@@ -51,7 +51,7 @@ $websocketServer = new IoServer(
 );
 
 $httpSocket = new React\Socket\Server($loop);
-$httpSocket->listen('81', '0.0.0.0');
+$httpSocket->listen('80', '0.0.0.0');
 $httpServer = new IoServer(
     new HttpServer(
         new ConnectionHandler($router)
