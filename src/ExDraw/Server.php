@@ -1,8 +1,10 @@
 <?php
 namespace Sketchpad\ExDraw;
 
+use Exception;
 use Ratchet\MessageComponentInterface;
 use Ratchet\ConnectionInterface;
+use SplObjectStorage as SplObjectStorageAlias;
 
 class Server implements MessageComponentInterface
 {
@@ -17,8 +19,13 @@ class Server implements MessageComponentInterface
     const COMMAND_MESSAGE = 3;
     const DELIMITER = "|";
 
+    /** @var SplObjectStorageAlias */
     protected $clients;
-    protected $id = 0;
+
+    /** @var int */
+    protected $connectionSequenceId = 0;
+
+
     protected $nicks = array();
     protected $drawing = array();
     protected $drawState = array();
@@ -29,7 +36,7 @@ class Server implements MessageComponentInterface
      */
     public function __construct()
     {
-        $this->clients = new \SplObjectStorage();
+        $this->clients = new SplObjectStorageAlias();
     }
 
     /**
@@ -40,41 +47,41 @@ class Server implements MessageComponentInterface
      */
     public function onOpen(ConnectionInterface $conn)
     {
-        $this->id++;
+        $this->connectionSequenceId++;
 
         $_ = self::DELIMITER;
 
         // keep track of the connected client
-        $this->clients->attach($conn, $this->id);
+        $this->clients->attach($conn, $this->connectionSequenceId);
 
         // default nickname
-        $this->nicks[$this->id] = "Guest {$this->id}";
+        $this->nicks[$this->connectionSequenceId] = "Guest {$this->connectionSequenceId}";
 
         // initialize the drawing state for the user as false
-        $this->drawing[$this->id] = false;
+        $this->drawing[$this->connectionSequenceId] = false;
 
         // send user id
-        $conn->send($this->id . $_ . self::USER_ID . $_ . $this->nicks[$this->id]);
+        $conn->send($this->connectionSequenceId . $_ . self::USER_ID . $_ . $this->nicks[$this->connectionSequenceId]);
 
         // broadcast all existing users.
         $userList = [];
 
         foreach ($this->nicks as $id => $nick) {
-            if ($id != $this->id) {
+            if ($id != $this->connectionSequenceId) {
                 $userList[] = $id . $_ . $nick;
             }
         }
 
         // send the client the current list of users
-        $conn->send($this->id . $_ . self::USER_LIST . $_ . join($_, $userList));
+        $conn->send($this->connectionSequenceId . $_ . self::USER_LIST . $_ . join($_, $userList));
 
         // send the captured drawing points so the client will initialize the current canvas state
         foreach ($this->drawState as $state) {
-            $conn->send($this->id . $_ . $state);
+            $conn->send($this->connectionSequenceId . $_ . $state);
         }
 
         // broadcast new user
-        $this->onMessage($conn, self::USER_CONNECTED . $_ . $this->id . $_ . $this->nicks[$this->id]);
+        $this->onMessage($conn, self::USER_CONNECTED . $_ . $this->connectionSequenceId . $_ . $this->nicks[$this->connectionSequenceId]);
     }
 
     /**
@@ -90,7 +97,8 @@ class Server implements MessageComponentInterface
      */
     public function onMessage(ConnectionInterface $from, $msg)
     {
-        $id     = $this->clients[$from];
+        /** @var int $sequenceId */
+        $sequenceId     = $this->clients[$from];
         $data   = explode(self::DELIMITER, $msg);
         $_      = self::DELIMITER;
         $drawState = null;
@@ -108,7 +116,7 @@ class Server implements MessageComponentInterface
 
                 switch ( $data[ $position++ ] ) {
                     case self::COMMAND_SETNICKNAME:
-                        $this->nicks[$id] = $data[$position++];
+                        $this->nicks[$sequenceId] = $data[$position++];
                         break;
 
                     case self::COMMAND_POSITION:
@@ -135,7 +143,7 @@ class Server implements MessageComponentInterface
 
         foreach ($this->clients as $client) {
             if ($from !== $client) {
-                $client->send($id . $_ . $msg);
+                $client->send($sequenceId . $_ . $msg);
             }
         }
     }
@@ -147,13 +155,14 @@ class Server implements MessageComponentInterface
      */
     public function onClose(ConnectionInterface $conn)
     {
-        $id = $this->clients[$conn];
-        $this->onMessage($conn, self::USER_DISCONNECTED . self::DELIMITER . $id . self::DELIMITER . $this->nicks[$id]);
+        /** @var int $sequenceId */
+        $sequenceId = $this->clients[$conn];
+        $this->onMessage($conn, self::USER_DISCONNECTED . self::DELIMITER . $sequenceId . self::DELIMITER . $this->nicks[$sequenceId]);
         $this->clients->detach($conn);
 
         // cleanup
-        unset($this->nicks[$id]);
-        unset($this->drawing[$this->id]);
+        unset($this->nicks[$sequenceId]);
+        unset($this->drawing[$this->connectionSequenceId]);
     }
 
     /**
@@ -163,7 +172,7 @@ class Server implements MessageComponentInterface
      * @param  Exception           $e
      * @return void
      */
-    public function onError(ConnectionInterface $conn, \Exception $e)
+    public function onError(ConnectionInterface $conn, Exception $e)
     {
         $conn->close();
     }
