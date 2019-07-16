@@ -16,16 +16,15 @@ $loop               = React\EventLoop\Factory::create();
 $documentRoot       = realpath(__DIR__ .'/../public');
 $drawServer         = new DrawServer();
 
-// get html and replace the host
-$clientBootstrap    = file_get_contents(__DIR__ . '/../public/index.html');
+$clientBootstrapHtml = file_get_contents(__DIR__ . '/../public/index.html');
 
 /*
     Configure router, the router allows for callbacks to be executed on a route match.  If no
     match is found then it will look to see if it can load a static file.
  */
 $router = new Router(array(
-    "/" => function($request, $response, $connection) use ($clientBootstrap) {
-        $response->setBody($clientBootstrap);
+    "/" => function($request, $response, $connection) use ($clientBootstrapHtml) {
+        $response->setBody($clientBootstrapHtml);
         $connection->send($response);
         $connection->close();
     }

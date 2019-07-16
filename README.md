@@ -25,12 +25,17 @@ docker run -ti -p 80:80 -p 8080:8080 websocket-demo
 ## Run the Demo
 This sample is configured to run the web server on port 80 and the web socket server on port 8080.  You will want to make sure that these ports are available or open the server file located in bin/server.php and the ws connection url in public/index.html and change the port numbers accordingly.
 
-Since the demo runs on port 80 for the web server we'll need to start it with sudo (feel free to change this to any port you wish).
+Since the demo runs on port 80 for the web server we'll need to start it with sudo (feel free to change this to any port you wish). 
 
 ```bash
 $ sudo php bin/server.php > /dev/null 2>&1 &
 ```
 
+In some cases (observed on ubuntu 18.04), there is some default apache already occupying port 80. If this is the case, you have to stop it in order to run the demo on the default port.
+
+```bash
+$ sudo service apache2 stop
+```
 Once running open [http://127.0.0.1:80](http://127.0.0.1:80) in multiple browser windows, ideally side by side.
 
 ## Code of Interest
