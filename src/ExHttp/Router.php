@@ -19,6 +19,8 @@ use React\Promise\Promise;
 class Router
 {
     protected $routes;
+
+    /** @var StaticFile */
     protected $fileHandler;
 
     public function __construct($routes = array())

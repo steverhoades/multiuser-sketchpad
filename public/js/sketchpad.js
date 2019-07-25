@@ -1,5 +1,5 @@
 /**
- * The sketchpad manager class. It will manaage messages coming from the server and interact with the various supporting
+ * The sketchpad manager class. It will manage messages coming from the server and interact with the various supporting
  * objects to handle drawing and chat.  In addition it will manage the state.
  *
  * @param connection        The websocket connection
